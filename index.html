@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Závody s AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#14171C; --panel:#1D2229; --panel2:#252B34; --line:#343C47; --text:#E8ECF1; --soft:#9AA6B4;
+  --yellow:#FFC93C; --red:#FF5A4E; --green:#3DDC84; --blue:#5AA9FF;
+  --head:'Chakra Petch',system-ui,sans-serif; --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px}
+button,input,select{font:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;padding:14px clamp(14px,2vw,26px) 10px}
+header h1{font-family:var(--head);font-size:26px;margin:0;letter-spacing:.02em}
+header h1 span{color:var(--yellow)}
+header p{margin:0;color:var(--soft);font-size:14px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:16px;padding:0 clamp(14px,2vw,26px) 24px;align-items:start}
+@media (max-width:1100px){.layout{grid-template-columns:1fr}}
+.stage{position:relative;background:#000;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+#game{display:block;width:100%;height:auto;aspect-ratio:16/9}
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,12,16,.62);padding:20px}
+.overlay[hidden]{display:none}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 24px;max-width:560px;width:100%;box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.card h2{font-family:var(--head);font-size:30px;margin:0 0 6px;color:var(--yellow)}
+.card p{margin:6px 0;color:var(--soft);line-height:1.5}
+.card .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0}
+.stat{background:var(--panel2);border-radius:8px;padding:10px 12px}
+.stat b{display:block;font-family:var(--head);font-size:26px;color:var(--text)}
+.stat span{font-size:12.5px;color:var(--soft)}
+.btn{border:none;border-radius:8px;padding:10px 16px;font-weight:600;background:var(--panel2);color:var(--text);border:1px solid var(--line);transition:transform .1s,background .15s}
+.btn:hover{background:#2E3540}
+.btn:active{transform:scale(.97)}
+.btn.go{background:var(--yellow);color:#1A1A1A;border-color:var(--yellow)}
+.btn.go:hover{background:#FFD866}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.small{padding:6px 10px;font-size:13px}
+.side{display:flex;flex-direction:column;gap:12px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.box h3{font-family:var(--head);font-size:17px;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+.num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--yellow);color:#1A1A1A;font-size:14px}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:14px;text-align:center;color:var(--soft);font-size:13.5px;transition:border-color .15s,background .15s}
+.drop.over{border-color:var(--yellow);background:rgba(255,201,60,.07)}
+.drop b{color:var(--text)}
+.linkrow{display:flex;gap:6px;margin-top:8px}
+.linkrow input{flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--text);padding:7px 9px;font-size:13px}
+.status{font-size:13.5px;margin-top:8px;min-height:1.2em}
+.status.ok{color:var(--green)} .status.err{color:var(--red)} .status.busy{color:var(--yellow)}
+.cam{display:flex;gap:12px;align-items:flex-start}
+#camCanvas{width:150px;height:150px;border-radius:8px;background:#0B0D10;border:1px solid var(--line);flex:none}
+.now{flex:1}
+.now small{display:block;color:var(--soft);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.now b{display:block;font-family:var(--head);font-size:30px;line-height:1.1;margin:2px 0}
+.now span{font-size:13px;color:var(--soft)}
+.classes{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.cls{display:grid;grid-template-columns:1fr 128px;gap:4px 8px;align-items:center}
+.cls .name{font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cls select{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:13px}
+.bar{grid-column:1/-1;height:9px;background:var(--panel2);border-radius:5px;overflow:hidden;position:relative}
+.bar i{display:block;height:100%;width:0;background:var(--blue);transition:width .12s}
+.bar.top i{background:var(--yellow)}
+.bar em{position:absolute;right:4px;top:-17px;font-style:normal;font-size:11.5px;color:var(--soft);font-family:var(--mono)}
+.opts{margin-top:12px;display:flex;flex-direction:column;gap:8px;font-size:13.5px}
+.opts label{display:flex;align-items:center;gap:8px}
+.opts input[type=range]{flex:1}
+.hint{font-size:12.5px;color:var(--soft);margin:6px 0 0;line-height:1.45}
+.field{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--soft);margin-bottom:10px}
+.field input,.field select{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--text);padding:8px 9px;font-size:14px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.board{margin-top:12px}
+.board h4{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--soft);margin:0 0 6px;display:flex;justify-content:space-between;align-items:center}
+.board ol{margin:0;padding:0;list-style:none;font-size:13.5px}
+.board li{display:grid;grid-template-columns:22px 1fr auto;gap:6px;padding:4px 0;border-bottom:1px dashed var(--line)}
+.board li .t{font-family:var(--mono)}
+.chip{font-size:10.5px;border-radius:4px;padding:0 5px;margin-left:5px;vertical-align:1px}
+.chip.g{background:rgba(61,220,132,.16);color:var(--green)}
+.chip.k{background:rgba(154,166,180,.18);color:var(--soft)}
+.linkbtn{background:none;border:none;color:var(--soft);text-decoration:underline;padding:0;font-size:12px}
+details{font-size:13.5px;color:var(--soft);line-height:1.5}
+details summary{cursor:pointer;color:var(--text);font-weight:600}
+details ol{padding-left:18px;margin:6px 0}
+.kbd{font-family:var(--mono);background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:12px;color:var(--text)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Závody s <span>AI</span></h1>
+  <p>Natrénuj v Teachable Machine model na gesta, nahraj ho sem a řiď auto přes webkameru.</p>
+</header>
+
+<main class="layout">
+  <section>
+    <div class="stage">
+      <canvas id="game" width="960" height="540"></canvas>
+      <div class="overlay" id="overlay"></div>
+    </div>
+    <details class="box" style="margin-top:12px">
+      <summary>Jak dostat model z Teachable Machine do hry</summary>
+      <ol>
+        <li>V Teachable Machine vytvoř <b>Obrazový projekt</b> (gesta dlaní: dlaň, pěst, naklonění ruky) nebo <b>Pózový projekt</b> (gesta celých paží – pózový model nevidí prsty).</li>
+        <li>Udělej třídy, např. <b>Plyn</b>, <b>Brzda</b>, <b>Doleva</b>, <b>Doprava</b> a hlavně <b>Nic</b> (normální sed). Bez třídy „Nic“ auto pořád něco dělá.</li>
+        <li>Klikni na <b>Exportovat model</b> → záložka <b>Tensorflow.js</b> → <b>Download</b> → <b>Download my model</b>. Stáhne se ZIP.</li>
+        <li>ZIP přetáhni sem doprava do kroku 1 (rozbalovat ho nemusíš). Nebo zvol <b>Upload (shareable link)</b> a vlož sem odkaz.</li>
+        <li>Povol kameru a v kroku 2 zkontroluj, že každá třída má správnou akci.</li>
+      </ol>
+      Ovládání na klávesnici: <span class="kbd">↑</span> plyn, <span class="kbd">↓</span> brzda, <span class="kbd">←</span> <span class="kbd">→</span> zatáčení. <span class="kbd">Esc</span> ukončí jízdu.
+    </details>
+  </section>
+
+  <aside class="side">
+    <div class="box">
+      <h3><span class="num">1</span> Nahraj model</h3>
+      <div class="drop" id="drop">
+        Přetáhni sem <b>ZIP z Teachable Machine</b><br>(nebo 3 soubory: model.json, metadata.json, weights.bin)
+        <div style="margin-top:8px"><button class="btn small" id="pick">Vybrat soubor…</button></div>
+        <input type="file" id="file" accept=".zip,.json,.bin" multiple hidden>
+      </div>
+      <div class="linkrow">
+        <input id="url" type="text" placeholder="nebo vlož odkaz https://teachablemachine.withgoogle.com/models/…" autocomplete="off">
+        <button class="btn small" id="loadUrl">Načíst</button>
+      </div>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="box">
+      <h3><span class="num">2</span> Kamera a gesta</h3>
+      <div class="cam">
+        <canvas id="camCanvas" width="200" height="200"></canvas>
+        <div class="now">
+          <small>Model teď vidí</small>
+          <b id="nowAction">–</b>
+          <span id="nowDetail">Nejdřív nahraj model.</span>
+        </div>
+      </div>
+      <div class="classes" id="classes"></div>
+      <div class="opts">
+        <label>Min. jistota <input type="range" id="thr" min="40" max="95" step="5" value="60"><span id="thrVal" style="font-family:var(--mono);width:3.2em;text-align:right">60 %</span></label>
+        <label><input type="checkbox" id="autoGas"> Automatický plyn (auto jede samo, gesty jen zatáčíš a brzdíš)</label>
+      </div>
+      <p class="hint">Když si model není dost jistý, hra to bere jako „nic“. Sleduj sloupce – ukážou ti, které gesto si model plete.</p>
+    </div>
+
+    <div class="box">
+      <h3><span class="num">3</span> Závod</h3>
+      <label class="field">Jméno skupiny<input id="team" type="text" maxlength="30" placeholder="např. Turbo Bažanti" autocomplete="off"></label>
+      <label class="field">Trať
+        <select id="track"><option value="easy">Lehká – mírné zatáčky, málo aut</option><option value="hard">Těžší – ostré zatáčky, víc aut</option></select>
+      </label>
+      <div class="btns">
+        <button class="btn go" id="startG" disabled>Start – gesta</button>
+        <button class="btn" id="startK">Start – klávesnice</button>
+      </div>
+      <div class="board">
+        <h4><span>Nejlepší časy na tomhle PC</span><button class="linkbtn" id="clearBoard">smazat</button></h4>
+        <ol id="board"></ol>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+<script>
+(function(){
+'use strict';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ============ Knihovny (načítají se až podle typu modelu) ============ */
+const LIB={
+  image:'https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js',
+  pose:'https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8.6/dist/teachablemachine-pose.min.js',
+  zip:'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'
+};
+const loaded={};
+function loadScript(src){
+  if(loaded[src]) return loaded[src];
+  loaded[src]=new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>{delete loaded[src];rej(new Error('Nepodařilo se stáhnout knihovnu – je počítač připojený k internetu?'));};document.head.appendChild(s);});
+  return loaded[src];
+}
+
+/* ============ Akce ============ */
+const ACTIONS=[
+  {id:'plyn',label:'Plyn'},{id:'brzda',label:'Brzda'},{id:'vlevo',label:'Doleva'},{id:'vpravo',label:'Doprava'},
+  {id:'plyn_vlevo',label:'Plyn + doleva'},{id:'plyn_vpravo',label:'Plyn + doprava'},{id:'nic',label:'Nic'}
+];
+const ACTION_LABEL=Object.fromEntries(ACTIONS.map(a=>[a.id,a.label]));
+const fold=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+function guessAction(name){
+  const n=fold(name);
+  const has=(...w)=>w.some(x=>n.includes(x));
+  const L=has('vlevo','doleva','levo','left','leva'), R=has('vpravo','doprava','pravo','right','prava');
+  const G=has('plyn','gas','jed','vpred','rovne','go','zrychl','dlan');
+  if(has('nic','neutral','pozadi','klid','none','prazdn','nothing','background','sed')) return 'nic';
+  if(has('brzd','stop','pest','zastav','brake')) return 'brzda';
+  if(G&&L) return 'plyn_vlevo';
+  if(G&&R) return 'plyn_vpravo';
+  if(L) return 'vlevo';
+  if(R) return 'vpravo';
+  if(G) return 'plyn';
+  return 'nic';
+}
+
+/* ============ Model a kamera ============ */
+const ai={lib:null,type:null,model:null,labels:[],map:[],webcam:null,busy:false,smooth:[],top:-1,conf:0,action:'nic',
+  thr:0.6,autoGas:false,stats:null,lastPose:null};
+const camCtx=$('#camCanvas').getContext('2d');
+
+function setStatus(msg,cls){const s=$('#status');s.textContent=msg;s.className='status '+(cls||'');}
+
+async function readModelFiles(fileList){
+  const files=[...fileList];
+  let model,weights,meta;
+  const zip=files.find(f=>/\.zip$/i.test(f.name));
+  if(zip){
+    await loadScript(LIB.zip);
+    const z=await JSZip.loadAsync(zip);
+    const entries=Object.values(z.files).filter(e=>!e.dir);
+    const pick=re=>entries.find(e=>re.test(e.name.split('/').pop()));
+    const em=pick(/^model\.json$/i), ew=pick(/\.bin$/i), et=pick(/^metadata\.json$/i);
+    if(!em||!ew||!et) throw new Error('V ZIPu chybí model.json, metadata.json nebo weights.bin. Je to opravdu ZIP z Teachable Machine (Tensorflow.js → Download)?');
+    const mk=async(e,type)=>new File([await e.async('blob')],e.name.split('/').pop(),{type});
+    model=await mk(em,'application/json'); weights=await mk(ew,'application/octet-stream'); meta=await mk(et,'application/json');
+  }else{
+    model=files.find(f=>/^model\.json$/i.test(f.name)); weights=files.find(f=>/\.bin$/i.test(f.name)); meta=files.find(f=>/^metadata\.json$/i.test(f.name));
+    if(!model||!weights||!meta) throw new Error('Potřebuju všechny 3 soubory najednou (model.json, metadata.json, weights.bin) – nebo rovnou celý ZIP.');
+  }
+  const metaJson=JSON.parse(await meta.text());
+  return {model,weights,meta,metaJson};
+}
+function detectType(meta){
+  if(!meta||!Array.isArray(meta.labels)) throw new Error('Tohle nevypadá jako obrazový ani pózový model z Teachable Machine.');
+  if(/audio|speech/i.test(meta.packageName||'')) throw new Error('Zvukový model hra neumí – použij obrazový nebo pózový projekt.');
+  if((meta.modelSettings&&meta.modelSettings.posenet)||/pose/i.test(meta.packageName||'')) return 'pose';
+  return 'image';
+}
+async function useModel(type,loader){
+  setStatus('Načítám knihovnu a model…','busy');
+  await loadScript(LIB[type]);
+  const lib=type==='pose'?window.tmPose:window.tmImage;
+  const model=await loader(lib);
+  ai.lib=lib; ai.type=type; ai.model=model;
+  ai.labels=model.getClassLabels();
+  ai.map=ai.labels.map(guessAction);
+  ai.smooth=ai.labels.map(()=>0);
+  renderClasses();
+  setStatus(`Načteno: ${type==='pose'?'pózový':'obrazový'} model, ${ai.labels.length} ${ai.labels.length<5?'třídy':'tříd'}. Zapínám kameru…`,'ok');
+  await startWebcam();
+  setStatus(`Hotovo: ${type==='pose'?'pózový':'obrazový'} model, ${ai.labels.length} ${ai.labels.length<5?'třídy':'tříd'}. Zkontroluj akce v kroku 2.`,'ok');
+  $('#startG').disabled=false;
+  checkMapping();
+}
+async function startWebcam(){
+  if(ai.webcam&&ai.webcamLib===ai.lib) return;
+  if(ai.webcam){try{ai.webcam.stop();}catch(_){}}
+  const cam=new ai.lib.Webcam(200,200,true);
+  try{ await cam.setup(); await cam.play(); }
+  catch(e){
+    const n=e&&e.name;
+    const msg=n==='NotAllowedError'?'Prohlížeč nedovolil kameru. Klikni na ikonu kamery v adresním řádku a povol ji, pak načti model znovu.':
+      n==='NotFoundError'?'Tenhle počítač nemá kameru (nebo ji nenašel).':
+      n==='NotReadableError'?'Kameru právě používá jiná aplikace (Teams?). Zavři ji a načti model znovu.':
+      'Kamera nejde zapnout: '+(e&&e.message||e);
+    throw new Error(msg);
+  }
+  ai.webcam=cam; ai.webcamLib=ai.lib;
+}
+
+async function onFiles(list){
+  try{
+    setStatus('Čtu soubory…','busy');
+    const f=await readModelFiles(list);
+    const type=detectType(f.metaJson);
+    await useModel(type,lib=>lib.loadFromFiles(f.model,f.weights,f.meta));
+  }catch(e){console.error(e);setStatus(niceError(e,'file'),'err');}
+}
+function niceError(e,src){
+  const m=(e&&e.message)||String(e);
+  if(/failed to fetch|networkerror|load failed/i.test(m)){
+    return src==='url'?'Model se z odkazu nepodařilo stáhnout. Zkontroluj odkaz (musí být z „Upload (shareable link)“) a připojení k internetu.'
+      :'Nepodařilo se stáhnout data z internetu. Pózový model si navíc stahuje PoseNet od Googlu – je počítač online?';
+  }
+  return m;
+}
+async function onUrl(){
+  let u=$('#url').value.trim();
+  if(!u){setStatus('Vlož odkaz na model.','err');return;}
+  u=u.replace(/(model\.json|metadata\.json)$/i,''); if(!u.endsWith('/')) u+='/';
+  try{
+    setStatus('Stahuju model…','busy');
+    const r=await fetch(u+'metadata.json'); if(!r.ok) throw new Error('Na tomhle odkazu žádný model není (zkontroluj, že jsi ho v Teachable Machine opravdu nahrál/a).');
+    const meta=await r.json();
+    const type=detectType(meta);
+    await useModel(type,lib=>lib.load(u+'model.json',u+'metadata.json'));
+  }catch(e){console.error(e);setStatus(niceError(e,'url'),'err');}
+}
+
+/* třídy + mapování */
+function renderClasses(){
+  const box=$('#classes');
+  box.innerHTML=ai.labels.map((l,i)=>`<div class="cls"><span class="name" title="${esc(l)}">${esc(l)}</span>
+    <select data-i="${i}" aria-label="Akce pro třídu ${esc(l)}">${ACTIONS.map(a=>`<option value="${a.id}"${ai.map[i]===a.id?' selected':''}>${a.label}</option>`).join('')}</select>
+    <div class="bar" id="bar${i}"><i></i><em>0 %</em></div></div>`).join('');
+}
+$('#classes').addEventListener('change',e=>{const s=e.target.closest('select');if(!s)return;ai.map[+s.dataset.i]=s.value;checkMapping();});
+function checkMapping(){
+  const set=new Set(ai.map);
+  const missing=[];
+  if(!ai.autoGas&&!set.has('plyn')&&!set.has('plyn_vlevo')&&!set.has('plyn_vpravo')) missing.push('plyn (nebo zapni automatický plyn)');
+  if(!set.has('vlevo')&&!set.has('plyn_vlevo')) missing.push('doleva');
+  if(!set.has('vpravo')&&!set.has('plyn_vpravo')) missing.push('doprava');
+  if(!ai.labels.length) return;
+  const ok='Hotovo: '+(ai.type==='pose'?'pózový':'obrazový')+' model, '+ai.labels.length+(ai.labels.length<5?' třídy.':' tříd.');
+  if(missing.length) setStatus(ok+' Pozor, žádná třída nemá akci: '+missing.join(', ')+'.','err');
+  else setStatus(ok+' Akce jsou nastavené, můžeš startovat.','ok');
+}
+$('#thr').addEventListener('input',e=>{ai.thr=e.target.value/100;$('#thrVal').textContent=e.target.value+' %';});
+$('#autoGas').addEventListener('change',e=>{ai.autoGas=e.target.checked;checkMapping();});
+
+/* smyčka předpovědí */
+async function predictLoop(){
+  try{
+    if(ai.webcam){
+      ai.webcam.update();
+      if(ai.model&&!ai.busy){
+        ai.busy=true;
+        let preds;
+        if(ai.type==='pose'){
+          const {pose,posenetOutput}=await ai.model.estimatePose(ai.webcam.canvas);
+          preds=await ai.model.predict(posenetOutput);
+          ai.lastPose=pose;
+        }else{
+          preds=await ai.model.predict(ai.webcam.canvas);
+        }
+        handlePreds(preds);
+        drawCam();
+        ai.busy=false;
+      }
+    }
+  }catch(e){console.error(e);ai.busy=false;}
+  requestAnimationFrame(predictLoop);
+}
+function drawCam(){
+  if(!ai.webcam) return;
+  camCtx.drawImage(ai.webcam.canvas,0,0,200,200);
+  if(ai.type==='pose'&&ai.lastPose&&ai.lib.drawKeypoints){
+    ai.lib.drawKeypoints(ai.lastPose.keypoints,0.5,camCtx,4,'#FFC93C','#1A1A1A');
+    ai.lib.drawSkeleton(ai.lastPose.keypoints,0.5,camCtx,3,'#FFC93C');
+  }
+}
+function handlePreds(preds){
+  const p=preds.map(x=>x.probability);
+  for(let i=0;i<p.length;i++) ai.smooth[i]=ai.smooth[i]*0.45+p[i]*0.55;
+  let top=0; for(let i=1;i<p.length;i++) if(ai.smooth[i]>ai.smooth[top]) top=i;
+  ai.conf=ai.smooth[top];
+  ai.top=ai.conf>=ai.thr?top:-1;
+  ai.action=ai.top>=0?ai.map[ai.top]:'nic';
+  for(let i=0;i<p.length;i++){
+    const b=document.getElementById('bar'+i); if(!b) continue;
+    b.firstElementChild.style.width=Math.round(ai.smooth[i]*100)+'%';
+    b.lastElementChild.textContent=Math.round(ai.smooth[i]*100)+' %';
+    b.classList.toggle('top',i===ai.top);
+  }
+  $('#nowAction').textContent=ai.top>=0?ACTION_LABEL[ai.action]:'nejisté';
+  $('#nowAction').style.color=ai.top>=0?'':'var(--soft)';
+  $('#nowDetail').textContent=ai.top>=0?`třída „${ai.labels[ai.top]}“ · ${Math.round(ai.conf*100)} %`:`nejvíc „${ai.labels[top]}“, ale jen ${Math.round(ai.conf*100)} %`;
+  if(game.state==='race'&&game.mode==='gesta'&&ai.stats){
+    ai.stats.total++;
+    if(ai.top<0) ai.stats.unsure++; else ai.stats.act[ai.action]=(ai.stats.act[ai.action]||0)+1;
+  }
+}
+
+/* ============ Hra (pseudo-3D závody) ============ */
+const cv=$('#game'), ctx=cv.getContext('2d');
+const W=960,H=540;
+const SEG=200, ROAD=2000, LANES=3, DRAW=180, CAM_H=1000, FOV=100;
+const DEPTH=1/Math.tan((FOV/2)*Math.PI/180);
+const PLAYER_Z=CAM_H*DEPTH;
+const MAX_SPEED=6000, ACCEL=MAX_SPEED/4.5, BRAKE=-MAX_SPEED*1.1, DECEL=-MAX_SPEED/7, OFF_DECEL=-MAX_SPEED/2.2, OFF_LIMIT=MAX_SPEED/4, CENTRIF=0.3;
+const COL={
+  light:{road:'#6B6E73',grass:'#3FA34D',rumble:'#F2F2F2',lane:'#E9E9E9'},
+  dark:{road:'#65686D',grass:'#37944A',rumble:'#D8382F'},
+  start:{road:'#F2F2F2',grass:'#3FA34D',rumble:'#F2F2F2'},
+  finish:{road:'#1A1A1A',grass:'#3FA34D',rumble:'#1A1A1A'}
+};
+let segments=[], finishZ=0, cars=[];
+
+const easeIn=(a,b,p)=>a+(b-a)*Math.pow(p,2);
+const easeInOut=(a,b,p)=>a+(b-a)*((-Math.cos(p*Math.PI)/2)+0.5);
+function rnd(seed){let s=seed;return ()=>{s=(s*16807)%2147483647;return (s-1)/2147483646;};}
+
+function buildTrack(kind){
+  segments=[]; cars=[];
+  const k=kind==='hard'?1:0.6;
+  const add=(curve)=>{const n=segments.length;segments.push({index:n,curve,p1:{world:{z:n*SEG},camera:{},screen:{}},p2:{world:{z:(n+1)*SEG},camera:{},screen:{}},color:Math.floor(n/3)%2?COL.dark:COL.light,sprites:[],clip:0});};
+  const road=(enter,hold,leave,curve)=>{for(let i=0;i<enter;i++)add(easeIn(0,curve,i/enter));for(let i=0;i<hold;i++)add(curve);for(let i=0;i<leave;i++)add(easeInOut(curve,0,i/leave));};
+  const straight=n=>road(n/4|0,n/2|0,n/4|0,0);
+  const curve=(n,c)=>road(n/4|0,n/2|0,n/4|0,c*k);
+  straight(60);
+  curve(120,2); straight(60);
+  curve(120,-2.5); straight(40);
+  curve(80,3); curve(80,-3); straight(60);
+  curve(160,1.5); straight(30);
+  curve(100,-3.5); straight(50);
+  curve(90,4); straight(40); curve(90,-4); straight(60);
+  curve(140,2.5); curve(140,-2); straight(80);
+  const finishIndex=segments.length;
+  finishZ=finishIndex*SEG;
+  for(let i=0;i<260;i++) add(0);
+  for(let i=0;i<3;i++){segments[2+i].color=COL.start; segments[finishIndex+i].color=COL.finish;}
+  segments[finishIndex+3].color=COL.start;
+  // kulisy
+  const r=rnd(kind==='hard'?7:11);
+  for(let i=12;i<segments.length;i+=6){
+    const side=r()<0.5?-1:1;
+    segments[i].sprites.push({type:r()<0.75?'tree':'bush',offset:side*(1.5+r()*1.4)});
+    if(r()<0.35) segments[i].sprites.push({type:'tree',offset:-side*(1.6+r()*1.2)});
+  }
+  for(let i=40;i<finishIndex;i+=55) segments[i].sprites.push({type:'sign',offset:(i/55|0)%2?1.25:-1.25,curve:segments[i+20]?segments[i+20].curve:0});
+  segments[finishIndex].sprites.push({type:'gate',offset:0});
+  segments[2].sprites.push({type:'gate',offset:0,start:true});
+  // auta soupeřů
+  const nCars=kind==='hard'?24:12, colors=['#2F7DE1','#E1442F','#F2B300','#8E44AD','#1ABC9C','#ECECEC'];
+  for(let i=0;i<nCars;i++){
+    const z=(30+((finishIndex-80)/nCars)*i+r()*20)*SEG;
+    cars.push({z,offset:[-0.66,0,0.66][Math.floor(r()*3)],speed:MAX_SPEED*(0.25+r()*0.25),color:colors[i%colors.length]});
+  }
+}
+const segAt=z=>segments[Math.min(segments.length-1,Math.max(0,Math.floor(z/SEG)))];
+
+function project(p,camX,camY,camZ){
+  p.camera.x=-camX; p.camera.y=-camY; p.camera.z=p.world.z-camZ;
+  p.screen.scale=DEPTH/p.camera.z;
+  p.screen.x=Math.round(W/2+p.screen.scale*p.camera.x*W/2);
+  p.screen.y=Math.round(H/2-p.screen.scale*p.camera.y*H/2);
+  p.screen.w=Math.round(p.screen.scale*ROAD*W/2);
+}
+function poly(x1,y1,x2,y2,x3,y3,x4,y4,c){ctx.fillStyle=c;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.lineTo(x3,y3);ctx.lineTo(x4,y4);ctx.closePath();ctx.fill();}
+function drawSegment(x1,y1,w1,x2,y2,w2,c,isLight){
+  const r1=w1/Math.max(6,2*LANES), r2=w2/Math.max(6,2*LANES);
+  ctx.fillStyle=c.grass; ctx.fillRect(0,y2,W,y1-y2);
+  y1+=1;
+  poly(x1-w1-r1,y1,x1-w1,y1,x2-w2,y2,x2-w2-r2,y2,c.rumble);
+  poly(x1+w1+r1,y1,x1+w1,y1,x2+w2,y2,x2+w2+r2,y2,c.rumble);
+  poly(x1-w1,y1,x1+w1,y1,x2+w2,y2,x2-w2,y2,c.road);
+  if(c===COL.finish||c===COL.start){
+    const n=10;ctx.fillStyle=c===COL.finish?'#F2F2F2':'#1A1A1A';
+    for(let i=0;i<n;i+=2){const a=i/n,b=(i+1)/n;poly(x1-w1+2*w1*a,y1,x1-w1+2*w1*b,y1,x2-w2+2*w2*b,y2,x2-w2+2*w2*a,y2,ctx.fillStyle);}
+  }else if(isLight){
+    const l1=w1/32,l2=w2/32;let lx1=x1-w1+2*w1/LANES,lx2=x2-w2+2*w2/LANES;
+    for(let l=1;l<LANES;l++){poly(lx1-l1/2,y1,lx1+l1/2,y1,lx2+l2/2,y2,lx2-l2/2,y2,COL.light.lane);lx1+=2*w1/LANES;lx2+=2*w2/LANES;}
+  }
+}
+
+const game={state:'idle',mode:'klávesnice',pos:0,x:0,speed:0,time:0,crashes:0,offTime:0,countdown:0,crashT:0,skyX:0,keys:{},flash:0,team:'',track:'easy'};
+
+function drawBackground(){
+  const g=ctx.createLinearGradient(0,0,0,H/2);g.addColorStop(0,'#3E8FD8');g.addColorStop(1,'#BFE3F7');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H/2+2);
+  const hill=(amp,base,col,par,freq)=>{ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(0,H/2+2);
+    for(let x=0;x<=W;x+=12){const t=(x+game.skyX*par)/W*Math.PI*2*freq;ctx.lineTo(x,base-amp*(0.55+0.45*Math.sin(t))-amp*0.3*Math.sin(t*2.7+1));}
+    ctx.lineTo(W,H/2+2);ctx.closePath();ctx.fill();};
+  hill(70,H/2-8,'#7AA7C2',0.4,1.3);
+  hill(45,H/2+2,'#4F8A5B',1,2.1);
+}
+function drawSprite(sp,seg){
+  const s=seg.p1.screen.scale, sx=seg.p1.screen.x+s*sp.offset*ROAD*W/2, sy=seg.p1.screen.y, k=s*W/2;
+  if(sy>seg.clip+2) return;
+  ctx.save(); ctx.beginPath(); ctx.rect(0,0,W,seg.clip); ctx.clip();
+  if(sp.type==='tree'){
+    const h=1400*k,w=700*k;
+    ctx.fillStyle='#6B4A2B';ctx.fillRect(sx-w*0.08,sy-h*0.35,w*0.16,h*0.35);
+    ctx.fillStyle='#2E7D32';ctx.beginPath();ctx.moveTo(sx,sy-h);ctx.lineTo(sx+w/2,sy-h*0.3);ctx.lineTo(sx-w/2,sy-h*0.3);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#38923C';ctx.beginPath();ctx.moveTo(sx,sy-h*0.98);ctx.lineTo(sx+w*0.32,sy-h*0.55);ctx.lineTo(sx-w*0.32,sy-h*0.55);ctx.closePath();ctx.fill();
+  }else if(sp.type==='bush'){
+    const r=320*k;ctx.fillStyle='#2F8A3A';ctx.beginPath();ctx.ellipse(sx,sy-r*0.7,r*1.3,r*0.8,0,0,Math.PI*2);ctx.fill();
+  }else if(sp.type==='sign'){
+    const h=900*k,w=500*k;ctx.fillStyle='#444';ctx.fillRect(sx-w*0.04,sy-h,w*0.08,h);
+    ctx.fillStyle='#F2B300';ctx.fillRect(sx-w/2,sy-h,w,w*0.7);
+    ctx.fillStyle='#1A1A1A';ctx.font=`700 ${Math.max(6,w*0.5)}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(sp.curve>0.3?'›':sp.curve<-0.3?'‹':'!',sx,sy-h+w*0.36);
+  }else if(sp.type==='gate'){
+    const w=seg.p1.screen.w*1.15,h=1500*k,x=seg.p1.screen.x;
+    ctx.fillStyle='#222';ctx.fillRect(x-w,sy-h,w*0.05,h);ctx.fillRect(x+w*0.95,sy-h,w*0.05,h);
+    ctx.fillStyle=sp.start?'#1E6FD9':'#D8382F';ctx.fillRect(x-w,sy-h,w*2,h*0.22);
+    ctx.fillStyle='#fff';ctx.font=`700 ${Math.max(6,h*0.15)}px 'Chakra Petch',sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(sp.start?'START':'CÍL',x,sy-h*0.89);
+  }
+  ctx.restore();
+}
+function drawCar(x,y,w,color,clip){
+  const h=w*0.62;
+  if(clip!==undefined){ctx.save();ctx.beginPath();ctx.rect(0,0,W,clip);ctx.clip();}
+  ctx.fillStyle='rgba(0,0,0,.28)';ctx.beginPath();ctx.ellipse(x,y,w*0.55,h*0.12,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#111';ctx.fillRect(x-w*0.48,y-h*0.32,w*0.18,h*0.32);ctx.fillRect(x+w*0.30,y-h*0.32,w*0.18,h*0.32);
+  ctx.fillStyle=color;
+  ctx.beginPath();ctx.moveTo(x-w*0.5,y-h*0.15);ctx.lineTo(x-w*0.46,y-h*0.62);ctx.lineTo(x+w*0.46,y-h*0.62);ctx.lineTo(x+w*0.5,y-h*0.15);ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.moveTo(x-w*0.34,y-h*0.62);ctx.lineTo(x-w*0.26,y-h*0.95);ctx.lineTo(x+w*0.26,y-h*0.95);ctx.lineTo(x+w*0.34,y-h*0.62);ctx.closePath();ctx.fill();
+  ctx.fillStyle='rgba(20,30,45,.85)';
+  ctx.beginPath();ctx.moveTo(x-w*0.29,y-h*0.64);ctx.lineTo(x-w*0.23,y-h*0.89);ctx.lineTo(x+w*0.23,y-h*0.89);ctx.lineTo(x+w*0.29,y-h*0.64);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#FF3B30';ctx.fillRect(x-w*0.45,y-h*0.5,w*0.14,h*0.1);ctx.fillRect(x+w*0.31,y-h*0.5,w*0.14,h*0.1);
+  ctx.fillStyle='#222';ctx.fillRect(x-w*0.2,y-h*0.4,w*0.4,h*0.12);
+  if(clip!==undefined) ctx.restore();
+}
+function drawPlayer(steer,off){
+  const bounce=off&&game.speed>200?(Math.random()*4-2):0;
+  ctx.save();ctx.translate(W/2,H-18+bounce);ctx.rotate(steer*0.06);
+  drawCar(0,0,230,'#FFC93C');
+  ctx.fillStyle='#1A1A1A';ctx.font="700 22px 'Chakra Petch',sans-serif";ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('AI',0,-70);
+  ctx.restore();
+}
+const fmtTime=t=>{const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(1).replace('.',',');};
+function drawHUD(){
+  ctx.textBaseline='top';
+  ctx.fillStyle='rgba(10,12,16,.6)';ctx.fillRect(0,0,W,46);
+  ctx.fillStyle='#fff';ctx.font="700 26px 'Chakra Petch',sans-serif";ctx.textAlign='left';ctx.fillText('⏱ '+fmtTime(game.time),16,8);
+  ctx.textAlign='right';ctx.fillText(Math.round(game.speed/MAX_SPEED*180)+' km/h',W-16,8);
+  const pw=300,px=W/2-pw/2,prog=Math.min(1,(game.pos+PLAYER_Z)/finishZ);
+  ctx.fillStyle='rgba(255,255,255,.18)';ctx.fillRect(px,18,pw,10);ctx.fillStyle='#FFC93C';ctx.fillRect(px,18,pw*prog,10);
+  ctx.fillStyle='#fff';ctx.font="600 13px 'IBM Plex Sans',sans-serif";ctx.textAlign='center';ctx.fillText(Math.round(prog*100)+' % trati · nárazy: '+game.crashes,W/2,30);
+  if(game.mode==='gesta'){
+    const txt=ai.top>=0?ACTION_LABEL[ai.action].toUpperCase():'NEJISTÉ';
+    ctx.font="700 22px 'Chakra Petch',sans-serif";const tw=ctx.measureText(txt).width+150;
+    ctx.fillStyle='rgba(10,12,16,.7)';ctx.fillRect(14,H-56,tw,42);
+    ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillStyle='#9AA6B4';ctx.font="600 13px 'IBM Plex Sans',sans-serif";ctx.fillText('model vidí:',26,H-35);
+    ctx.fillStyle=ai.top>=0?'#FFC93C':'#9AA6B4';ctx.font="700 22px 'Chakra Petch',sans-serif";ctx.fillText(txt,104,H-35);
+  }
+  if(game.flash>0){ctx.fillStyle=`rgba(255,90,78,${Math.min(0.35,game.flash)})`;ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#fff';ctx.font="700 54px 'Chakra Petch',sans-serif";ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('NÁRAZ!',W/2,H/2-60);}
+  if(game.state==='countdown'){
+    const n=Math.ceil(game.countdown);
+    ctx.fillStyle='rgba(10,12,16,.35)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#FFC93C';ctx.font="700 140px 'Chakra Petch',sans-serif";ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(n>0?n:'JEĎ!',W/2,H/2-40);
+    if(game.mode==='gesta'){ctx.fillStyle='#fff';ctx.font="600 20px 'IBM Plex Sans',sans-serif";ctx.fillText('Připrav ruce před kameru',W/2,H/2+50);}
+  }
+}
+function render(){
+  const base=segAt(game.pos), pct=(game.pos%SEG)/SEG;
+  const playerSeg=segAt(game.pos+PLAYER_Z);
+  let x=0,dx=-(base.curve*pct),maxy=H;
+  drawBackground();
+  for(let n=0;n<DRAW;n++){
+    const seg=segments[base.index+n]; if(!seg) break;
+    seg.clip=maxy;
+    project(seg.p1,game.x*ROAD-x,CAM_H,game.pos);
+    project(seg.p2,game.x*ROAD-x-dx,CAM_H,game.pos);
+    x+=dx; dx+=seg.curve;
+    if(seg.p1.camera.z<=DEPTH||seg.p2.screen.y>=seg.p1.screen.y||seg.p2.screen.y>=maxy) continue;
+    drawSegment(seg.p1.screen.x,seg.p1.screen.y,seg.p1.screen.w,seg.p2.screen.x,seg.p2.screen.y,seg.p2.screen.w,seg.color,seg.color===COL.light);
+    maxy=seg.p2.screen.y;
+  }
+  for(let n=DRAW-1;n>0;n--){
+    const seg=segments[base.index+n]; if(!seg||seg.p1.camera.z<=DEPTH) continue;
+    for(const sp of seg.sprites) drawSprite(sp,seg);
+    for(const c of cars){
+      if(segAt(c.z)!==seg) continue;
+      const s=seg.p1.screen.scale, cx=seg.p1.screen.x+s*c.offset*ROAD*W/2;
+      drawCar(cx,seg.p1.screen.y,s*700*W/2,c.color,seg.clip);
+    }
+  }
+  drawPlayer(game.steer||0,Math.abs(game.x)>1);
+  if(game.state!=='idle') drawHUD();
+}
+
+function controls(){
+  if(game.mode==='klávesnice'){const k=game.keys;return {gas:!!(k.ArrowUp||k.KeyW),brake:!!(k.ArrowDown||k.KeyS),left:!!(k.ArrowLeft||k.KeyA),right:!!(k.ArrowRight||k.KeyD)};}
+  const a=ai.action, c={gas:false,brake:false,left:false,right:false};
+  if(a==='plyn') c.gas=true;
+  if(a==='brzda') c.brake=true;
+  if(a==='vlevo'||a==='plyn_vlevo') c.left=true;
+  if(a==='vpravo'||a==='plyn_vpravo') c.right=true;
+  if(a==='plyn_vlevo'||a==='plyn_vpravo') c.gas=true;
+  if(ai.autoGas&&!c.brake) c.gas=true;
+  return c;
+}
+function update(dt){
+  game.skyX+=0; game.flash=Math.max(0,game.flash-dt*1.2); game.crashT=Math.max(0,game.crashT-dt);
+  if(game.state==='countdown'){game.countdown-=dt;if(game.countdown<=-0.6){game.state='race';}else if(game.countdown<=0&&game.state==='countdown'){/* JEĎ! */}}
+  for(const c of cars){ if(game.state==='race') c.z+=c.speed*dt; }
+  if(game.state!=='race'){game.steer*=0.9;return;}
+  game.time+=dt;
+  const c=controls();
+  const sp=game.speed/MAX_SPEED, steerAmt=dt*2.1*sp;
+  const playerSeg=segAt(game.pos+PLAYER_Z);
+  if(c.left){game.x-=steerAmt;} if(c.right){game.x+=steerAmt;}
+  game.steer=(c.right?1:0)-(c.left?1:0);
+  game.x-=steerAmt*sp*playerSeg.curve*CENTRIF;
+  game.skyX+=playerSeg.curve*sp*dt*120;
+  if(c.gas) game.speed+=ACCEL*dt; else if(c.brake) game.speed+=BRAKE*dt; else game.speed+=DECEL*dt;
+  const off=Math.abs(game.x)>1;
+  if(off){game.offTime+=dt; if(game.speed>OFF_LIMIT) game.speed+=OFF_DECEL*dt;}
+  // stromy
+  if(off&&game.crashT<=0) for(const s of playerSeg.sprites){
+    if((s.type==='tree')&&Math.abs(s.offset-game.x)<0.3){crash(MAX_SPEED*0.08);game.x+=(game.x>0?-0.35:0.35);break;}
+  }
+  // auta
+  const pz=game.pos+PLAYER_Z;
+  for(const car of cars){
+    const dz=car.z-pz;
+    if(dz>-SEG*0.2&&dz<SEG*0.9&&Math.abs(car.offset-game.x)<0.36&&game.speed>car.speed){
+      if(game.crashT<=0&&!(car.hit>game.time-2.5)){crash(car.speed*0.7);car.hit=game.time;}
+      else game.speed=Math.min(game.speed,car.speed*0.7);
+      game.pos=car.z-PLAYER_Z-SEG*0.9;
+    }
+  }
+  game.x=Math.max(-2.4,Math.min(2.4,game.x));
+  game.speed=Math.max(0,Math.min(MAX_SPEED,game.speed));
+  game.pos+=game.speed*dt;
+  if(game.pos+PLAYER_Z>=finishZ) finish();
+}
+function crash(newSpeed){game.crashes++;game.speed=newSpeed;game.crashT=0.9;game.flash=0.6;}
+
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  update(dt); render();
+  requestAnimationFrame(frame);
+}
+
+/* ============ Start, cíl, žebříček ============ */
+const ov=$('#overlay');
+function showOverlay(html){ov.innerHTML=html;ov.hidden=false;}
+function hideOverlay(){ov.hidden=true;ov.innerHTML='';}
+function startRace(mode){
+  game.team=$('#team').value.trim()||'Bez jména';
+  game.track=$('#track').value;
+  buildTrack(game.track);
+  Object.assign(game,{mode,state:'countdown',countdown:3,pos:0,x:0,speed:0,time:0,crashes:0,offTime:0,flash:0,crashT:0,steer:0});
+  ai.stats={total:0,unsure:0,act:{}};
+  hideOverlay();
+  if(document.activeElement&&document.activeElement.blur) document.activeElement.blur();
+  const top=$('.stage').getBoundingClientRect().top;
+  if(top<0||top>120) window.scrollTo({top:Math.max(0,window.scrollY+top-10),behavior:'smooth'});
+}
+function finish(){
+  game.state='finished';
+  const res={team:game.team,time:game.time,crashes:game.crashes,off:game.offTime,mode:game.mode,track:game.track,date:Date.now()};
+  saveBoard(res);
+  let modelHtml='';
+  if(game.mode==='gesta'&&ai.stats&&ai.stats.total){
+    const st=ai.stats, sure=Math.round((1-st.unsure/st.total)*100);
+    const parts=Object.entries(st.act).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${ACTION_LABEL[k]} ${Math.round(v/st.total*100)} %`).join(' · ');
+    modelHtml=`<div class="stat" style="grid-column:1/-1"><b>${sure} %</b><span>času si byl model jistý · ${esc(parts||'–')}</span></div>`;
+  }
+  showOverlay(`<div class="card"><h2>Cíl!</h2>
+    <p>${esc(game.team)} · ${game.mode==='gesta'?'ovládání gesty':'ovládání klávesnicí'} · ${game.track==='hard'?'těžší trať':'lehká trať'}</p>
+    <div class="stats">
+      <div class="stat"><b>${fmtTime(game.time)}</b><span>čas</span></div>
+      <div class="stat"><b>${game.crashes}</b><span>nárazů</span></div>
+      <div class="stat"><b>${game.offTime.toFixed(1).replace('.',',')} s</b><span>mimo silnici</span></div>
+      <div class="stat"><b>${rankOf(res)}.</b><span>místo mezi jízdami ${game.mode==='gesta'?'gesty':'klávesnicí'} na tomhle PC</span></div>
+      ${modelHtml}
+    </div>
+    <div class="row"><button class="btn go" data-again="${game.mode}">Jet znovu</button><button class="btn" data-close>Zavřít</button></div></div>`);
+}
+function abortRace(){if(game.state==='race'||game.state==='countdown'){game.state='idle';showIdle();}}
+function showIdle(){
+  const ready=!!ai.model;
+  showOverlay(`<div class="card"><h2>Závody s AI</h2>
+    <p>Řiď auto gesty před webkamerou. Model, který jste natrénovali v Teachable Machine, rozhoduje o plynu, brzdě i zatáčení.</p>
+    <p>${ready?'Model je načtený – zkontroluj akce vpravo a dej <b>Start – gesta</b>.':'Nejdřív vpravo nahraj model (krok 1). Mezitím si můžeš trať projet na klávesnici.'}</p>
+    <div class="row">${ready?'<button class="btn go" data-again="gesta">Start – gesta</button>':''}<button class="btn" data-again="klávesnice">Start – klávesnice</button></div></div>`);
+}
+ov.addEventListener('click',e=>{
+  const a=e.target.closest('[data-again]'); if(a){startRace(a.dataset.again);return;}
+  if(e.target.closest('[data-close]')){game.state='idle';showIdle();}
+});
+
+const BOARD_KEY='zavody-ai-v1';
+function getBoard(){try{return JSON.parse(localStorage.getItem(BOARD_KEY)||'[]');}catch(_){return [];}}
+function setBoard(b){try{localStorage.setItem(BOARD_KEY,JSON.stringify(b));}catch(_){}}
+const sortBoard=b=>b.sort((a,b2)=>(a.track===b2.track?0:(a.track==='hard'?-1:1))||a.time-b2.time);
+function saveBoard(r){const b=getBoard();b.push(r);setBoard(b);renderBoard();}
+function rankOf(r){return getBoard().filter(x=>x.track===r.track&&x.mode===r.mode).sort((a,b)=>a.time-b.time).findIndex(x=>x.date===r.date)+1;}
+function renderBoard(){
+  const tr=$('#track').value, all=getBoard().filter(x=>x.track===tr);
+  const g=all.filter(x=>x.mode==='gesta').sort((a,c)=>a.time-c.time).slice(0,8);
+  const k=all.filter(x=>x.mode!=='gesta').sort((a,c)=>a.time-c.time)[0];
+  let html=g.length?g.map((r,i)=>`<li><span>${i+1}.</span><span>${esc(r.team)}<span class="chip g">gesta</span></span><span class="t">${fmtTime(r.time)}</span></li>`).join(''):'<li><span></span><span style="color:var(--soft)">Zatím žádná jízda gesty na téhle trati.</span><span></span></li>';
+  if(k) html+=`<li style="border-bottom:none;color:var(--soft)"><span></span><span>Pro srovnání – klávesnicí: ${esc(k.team)}<span class="chip k">klávesnice</span></span><span class="t">${fmtTime(k.time)}</span></li>`;
+  $('#board').innerHTML=html;
+}
+$('#clearBoard').addEventListener('click',()=>{if(confirm('Opravdu smazat všechny časy na tomhle počítači?')){setBoard([]);renderBoard();}});
+$('#track').addEventListener('change',()=>{renderBoard();if(game.state==='idle'){buildTrack($('#track').value);}});
+
+/* ============ Ovládání stránky ============ */
+$('#startG').addEventListener('click',()=>startRace('gesta'));
+$('#startK').addEventListener('click',()=>startRace('klávesnice'));
+$('#pick').addEventListener('click',()=>$('#file').click());
+$('#file').addEventListener('change',e=>{if(e.target.files.length) onFiles(e.target.files); e.target.value='';});
+$('#loadUrl').addEventListener('click',onUrl);
+$('#url').addEventListener('keydown',e=>{if(e.key==='Enter') onUrl();});
+const drop=$('#drop');
+['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>{if(e.dataTransfer.files.length) onFiles(e.dataTransfer.files);});
+document.addEventListener('dragover',e=>e.preventDefault());
+document.addEventListener('drop',e=>e.preventDefault());
+const GAME_KEYS=['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyW','KeyS','KeyA','KeyD'];
+document.addEventListener('keydown',e=>{
+  if(e.target.matches('input,select,textarea')) return;
+  if(GAME_KEYS.includes(e.code)&&(game.state==='race'||game.state==='countdown')) e.preventDefault();
+  game.keys[e.code]=true;
+  if(e.code==='Escape') abortRace();
+});
+document.addEventListener('keyup',e=>{game.keys[e.code]=false;});
+window.addEventListener('blur',()=>{game.keys={};});
+
+/* ============ Start ============ */
+window.__zavody={game,ai,startRace,update};
+buildTrack('easy');
+renderBoard();
+showIdle();
+requestAnimationFrame(frame);
+requestAnimationFrame(predictLoop);
+if(!window.tf) setStatus('Nepodařilo se načíst TensorFlow.js – je počítač připojený k internetu?','err');
+})();
+</script>
+</body>
+</html>
